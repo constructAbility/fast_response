@@ -42,7 +42,9 @@ const userSchema = new mongoose.Schema({
     enum: ["available", "dispatched", "working", "break", "offDuty"],
     default: "available",
   },
-
+   isEmailVerified: { type: Boolean, default: false }, // ✅ email verification flag
+  emailOTP: { type: String },                          // ✅ store OTP
+  emailOTPExpires: { type: Date },
   // 🔹 Admin-specific
   department: String,
   permissions: [String],

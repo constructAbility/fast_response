@@ -12,48 +12,46 @@ exports.register = async (req, res) => {
   try {
     const { name, email, phone, password, role, ...rest } = req.body;
 
+    // ✅ Required fields check
     if (!name || !email || !phone || !password || !role) {
       return res.status(400).json({ message: "All required fields must be filled" });
     }
 
-   
-    const existing = await User.findOne({ email });
-    if (existing) {
+    // ✅ Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Please request an OTP first" });
+    }
+
+    // ✅ Check if email verified via OTP
+    if (!user.isEmailVerified) {
+      return res.status(400).json({ message: "Please verify your email first" });
+    }
+
+    // ✅ Check if user already registered (name & password set)
+    if (user.password) {
       return res.status(400).json({ message: "Email already registered" });
     }
 
+    // ✅ Hash password
     const hashed = await bcrypt.hash(password, 10);
 
-
-    const tempUser = {
-      name,
-      email,
-      phone,
-      password: hashed,
-      role,
-      ...rest,
-    };
-
-    
-    const fakeUser = { _id: "temp", role: tempUser.role };
-    const token = generateToken(fakeUser);
-
-   
-    const user = new User(tempUser);
-
+    // ✅ Update user with full details
+    user.name = name;
+    user.phone = phone;
+    user.password = hashed;
+    user.role = role;
+    Object.assign(user, rest); // any extra fields
     await user.save();
 
-//     sendEmail(
-//   "backendoffice12@gmail.com",
-//   "Test Email from SendGrid SMTP",
-//   "<h2>Hello 👋</h2><p>This is a test email using <b>SendGrid SMTP + Node.js</b>.</p>"
-// );
+    // ✅ Generate JWT
+    const token = generateToken(user);
+
     res.status(201).json({
       message: "Registered successfully",
-      token: generateToken(user),
+      token,
       user: user.toJSON(),
     });
-
   } catch (err) {
     console.error("Register Error:", err);
     res.status(500).json({ message: "Registration failed, no data saved" });

@@ -41,7 +41,7 @@ router.get(
           phone: "N/A",
           password: "N/A",
           role: "client", // ✅ Force role as client
-          location: "N/A"
+          location: "N/A",
         });
         await user.save();
       } else if (user.role !== "client") {
@@ -57,17 +57,17 @@ router.get(
         { expiresIn: "7d" }
       );
 
-      res.json({
-        message: "✅ Google login success (client)",
-        token,
-        user,
-      });
+      // 🌐 Redirect to frontend with token
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+      return res.redirect(`${frontendUrl}/oauth-success?token=${token}`);
+
     } catch (err) {
       console.error("Google Callback Error:", err);
       res.status(500).json({ message: "Server error during Google login" });
     }
   }
 );
+
 
 // 🧩 Failure redirect
 router.get("/failure", (req, res) => {

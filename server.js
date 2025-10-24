@@ -36,7 +36,7 @@ app.use(passport.session());
 app.use('/auth', require('./routes/authRoute')); // 🔹 Google + normal auth routes
 app.use('/api', require('./routes/work'));
 app.use('/api', require('./routes/admin'));
-
+app.use('/otp',require('./routes/otpRoutes'))
 // ✅ MongoDB Connection (unchanged)
 mongoose.connect(process.env.MONGO_URL)
   .then(() => console.log('✅ MongoDB connected'))
