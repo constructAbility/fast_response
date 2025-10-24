@@ -2,7 +2,7 @@
 const mongoose= require('mongoose')
 const Work = require("../model/work");
 
-// Get all work requests with status and details
+
 exports.getAllWorks = async (req, res) => {
   try {
     const works = await Work.find()

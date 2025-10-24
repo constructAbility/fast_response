@@ -2,23 +2,26 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
   // 🔹 Common fields
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  phone: { type: String, required: true },
-  password: { type: String, required: true },
-  role: { type: String, enum: ["client", "technician", "admin"], required: true },
+  name: String,
+  email: { type: String, unique: true, sparse: true },
+  phone: String,
+  password: String,
+  role: { type: String, enum: ["client", "technician", "admin"], default: "client" },
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
 
-  // 🔹 Common location fields
-  location: { type: String, required: true },
+  // 🔹 Social login fields
+  googleId: String,
+  facebookId: String,
+  avatar: String,
 
-  // ✅ For live tracking (GeoJSON)
+  // 🔹 Common location fields
+  location: String,
   coordinates: {
-    lat: { type: Number },   // current latitude
-    lng: { type: Number }    // current longitude
+    lat: Number,
+    lng: Number,
   },
-  lastLocationUpdate: { type: Date }, // when last updated
+  lastLocationUpdate: Date,
 
   // 🔹 Client-specific
   companyName: String,
@@ -31,18 +34,18 @@ const userSchema = new mongoose.Schema({
   responsibility: String,
   employeeId: String,
   availability: { type: Boolean, default: true },
-  onDuty: { type: Boolean, default: false }, // ✅ true when on a job/traveling
+  onDuty: { type: Boolean, default: false },
   ratings: { type: Number, default: 0 },
   totalJobs: { type: Number, default: 0 },
-technicianStatus: {
-  type: String,
-  enum: ["available", "dispatched", "working", "break", "offDuty"],
-  default: "available"
-},
+  technicianStatus: {
+    type: String,
+    enum: ["available", "dispatched", "working", "break", "offDuty"],
+    default: "available",
+  },
 
   // 🔹 Admin-specific
   department: String,
-  permissions: [String]
+  permissions: [String],
 });
 
 module.exports = mongoose.model("User", userSchema);

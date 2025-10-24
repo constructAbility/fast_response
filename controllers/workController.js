@@ -590,7 +590,7 @@ exports.reportWorkIssue = async (req, res) => {
       return res.status(403).json({ message: "You are not assigned to this work" });
     }
 
- 
+    // ⚙️ Your existing switch logic (unchanged)
     switch (issueType) {
       case "need_parts":
         work.status = "onhold_parts";
@@ -603,8 +603,8 @@ exports.reportWorkIssue = async (req, res) => {
       case "need_specialist":
         work.status = "escalated";
         work.remarks = remarks || "Requires senior technician";
-        
         await work.save();
+
         console.log(`Escalated to supervisor for Work ID: ${workId}`);
         break;
 
@@ -612,6 +612,7 @@ exports.reportWorkIssue = async (req, res) => {
         work.status = "rescheduled";
         work.remarks = remarks || "Customer not available at site";
         await work.save();
+
         console.log(`Work rescheduled due to customer unavailability`);
         break;
 
@@ -619,18 +620,33 @@ exports.reportWorkIssue = async (req, res) => {
         return res.status(400).json({ message: "Invalid issue type" });
     }
 
+    // ✅ 🔹 ADD ADMIN NOTIFICATION (only new part)
+    try {
+      await AdminNotification.create({
+        type: "work_issue",
+        message: `Technician ${req.user.name || technicianId} reported an issue (${issueType}) for work ${work._id}`,
+        work: work._id,
+        technician: technicianId,
+        issueType,
+        remarks: remarks || ""
+      });
+      console.log(`✅ Admin notified about issue ${issueType} for Work ${workId}`);
+    } catch (notifErr) {
+      console.error("❌ Admin notification creation failed:", notifErr.message);
+    }
 
+    // 🔹 Existing booking & technician update (unchanged)
     await Booking.findOneAndUpdate(
       { technician: technicianId, user: work.client._id },
       { status: work.status }
     );
 
-   
     await User.findByIdAndUpdate(technicianId, {
       technicianStatus: "pending",
       availability: true
     });
 
+    // 🔹 Final response (unchanged)
     return res.status(200).json({
       message: "Work issue reported successfully.",
       workStatus: work.status,
@@ -642,7 +658,9 @@ exports.reportWorkIssue = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 exports.getAdminNotifications = async (req, res) => {
+  
   try {
     const notifications = await AdminNotification.find()
       .sort({ createdAt: -1 })

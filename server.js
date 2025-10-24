@@ -2,30 +2,57 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const passport = require("passport");
+const session = require("express-session"); // 🆕 Needed for Google OAuth sessions
 
 dotenv.config();
 const app = express();
 
-// Middlewares
-app.use(cors());
+// ✅ Passport config (Google login)
+require("./config/passport");
+
+// ✅ Middlewares
+app.use(cors({
+  origin: ["http://localhost:3000"], // frontend origin (change if needed)
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/api',require('./routes/authRoute'))
-app.use('/api',require('./routes/work'))
-app.use('/api',require('./routes/admin'))
-// MongoDB Connection
+// ✅ Session Middleware (required by Passport)
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "supersecretkey",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
+// ✅ Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// ✅ Routes
+app.use('/auth', require('./routes/authRoute')); // 🔹 Google + normal auth routes
+app.use('/api', require('./routes/work'));
+app.use('/api', require('./routes/admin'));
+
+// ✅ MongoDB Connection (unchanged)
 mongoose.connect(process.env.MONGO_URL)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.log('MongoDB connection error:', err));
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => console.log('❌ MongoDB connection error:', err));
 
-// Start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// ✅ Health check route
+app.get('/', (req, res) => {
+  res.send('🚀 Server running fine with Google OAuth enabled!');
+});
 
-// Optional: Error handling middleware
+// ✅ Global error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('❌ Error:', err.stack);
   res.status(500).json({ message: 'Something went wrong!', error: err.message });
 });
+
+// ✅ Start Server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));

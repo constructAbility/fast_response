@@ -34,7 +34,7 @@ router.post('/work/issue', protect, authorize('technician'), reportWorkIssue);
 // 🧩 Get all works (admin/client view)
 router.get('/getAllWork', protect, getAllWorks);
 
-router.get('/issuetoadmin',getAdminNotifications);
+// router.get('/issuetoadmin',getAdminNotifications);
 
 router.patch('/work/update-location',protect,updateLocation);
 
