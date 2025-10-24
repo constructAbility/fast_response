@@ -59,7 +59,7 @@ router.get(
 
       // 🌐 Redirect to frontend with token
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-      return res.redirect(`${frontendUrl}/oauth-success?token=${token}`);
+      return res.redirect(`${frontendUrl}/client`);
 
     } catch (err) {
       console.error("Google Callback Error:", err);
