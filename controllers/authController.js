@@ -10,11 +10,16 @@ const generateToken = (user) => {
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, phone, password, role, ...rest } = req.body;
+    const { firstName, lastName, email, phone, password, confirmPassword, role, ...rest } = req.body;
 
-    // ✅ Required fields check
-    if (!name || !email || !phone || !password || !role) {
+    // ✅ Required fields check (no need to require 'role')
+    if (!firstName || !lastName || !email || !phone || !password || !confirmPassword) {
       return res.status(400).json({ message: "All required fields must be filled" });
+    }
+
+    // ✅ Check password match
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
     }
 
     // ✅ Check if user exists
@@ -23,25 +28,28 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: "Please request an OTP first" });
     }
 
-    // ✅ Check if email verified via OTP
+    // ✅ Check email verification
     if (!user.isEmailVerified) {
       return res.status(400).json({ message: "Please verify your email first" });
     }
 
-    // ✅ Check if user already registered (name & password set)
+    // ✅ Check if already registered
     if (user.password) {
       return res.status(400).json({ message: "Email already registered" });
     }
 
     // ✅ Hash password
-    const hashed = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ Update user with full details
-    user.name = name;
+    // ✅ Save user details
+    user.firstName = firstName;
+    user.lastName = lastName;
     user.phone = phone;
-    user.password = hashed;
-    user.role = role;
-    Object.assign(user, rest); // any extra fields
+    user.password = hashedPassword;
+    user.role = role || "client"; // Default to client
+    Object.assign(user, rest);
+    user.confirmPassword = undefined; // never store confirmPassword
+
     await user.save();
 
     // ✅ Generate JWT
@@ -58,7 +66,7 @@ exports.register = async (req, res) => {
   }
 };
 
-
+// ✅ Login
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -79,6 +87,7 @@ exports.login = async (req, res) => {
   }
 };
 
+// ✅ Get Profile
 exports.getProfile = async (req, res) => {
   try {
     res.json({ user: req.user });
@@ -87,4 +96,3 @@ exports.getProfile = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-

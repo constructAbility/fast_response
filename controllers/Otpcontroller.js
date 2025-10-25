@@ -1,60 +1,76 @@
-const nodemailer = require('nodemailer');
-const crypto = require('crypto');
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
+const User = require("../model/user"); // Use DB to store OTP
 
-// Temporary store (better use Redis or DB)
-const otpStore = {};
-
+// ✅ Send OTP
 exports.sendOTP = async (req, res) => {
   try {
     const { email } = req.body;
-
     if (!email) return res.status(400).json({ message: "Email required" });
+
+    // Find user
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
     // Generate 6-digit OTP
     const otp = crypto.randomInt(100000, 999999).toString();
 
-    // Store OTP with expiry (5 mins)
-    otpStore[email] = { otp, expiresAt: Date.now() + 5 * 60 * 1000 };
+    // Save OTP & expiry in DB (5 minutes)
+    user.emailOTP = otp;
+    user.emailOTPExpires = Date.now() + 5 * 60 * 1000;
+    await user.save();
 
-    // Setup mail transporter
+    // Setup SendGrid transporter
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: "smtp.sendgrid.net",
+      port: 587,
       auth: {
-        user: process.env.SMTP_USER, // your gmail id
-        pass: process.env.SMTP_PASS, // your gmail app password
+        user: "apikey", // literally "apikey"
+        pass: process.env.SENDGRID_PASS, // your SendGrid API key
       },
     });
 
     // Email content
     const mailOptions = {
-      from: process.env.SMTP_USER,
+      from: `"One Step Solution" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: 'Your OTP Code',
+      subject: "Your OTP Code",
       text: `Your OTP code is ${otp}. It will expire in 5 minutes.`,
     };
 
     // Send email
     await transporter.sendMail(mailOptions);
 
-    res.status(200).json({ message: 'OTP sent successfully!' });
+    res.status(200).json({ message: "OTP sent successfully!" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error sending OTP' });
+    console.error("Send OTP Error:", err);
+    res.status(500).json({ message: "Error sending OTP" });
   }
 };
 
-exports.verifyOTP = (req, res) => {
-  const { email, otp } = req.body;
+// ✅ Verify OTP
+exports.verifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ message: "Email and OTP required" });
 
-  const record = otpStore[email];
-  if (!record) return res.status(400).json({ message: 'OTP not found' });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  if (Date.now() > record.expiresAt)
-    return res.status(400).json({ message: 'OTP expired' });
+    if (!user.emailOTP || user.emailOTP !== otp)
+      return res.status(400).json({ message: "Invalid OTP" });
 
-  if (record.otp !== otp)
-    return res.status(400).json({ message: 'Invalid OTP' });
+    if (user.emailOTPExpires < Date.now())
+      return res.status(400).json({ message: "OTP expired" });
 
-  delete otpStore[email]; // OTP used
-  res.status(200).json({ message: 'OTP verified successfully!' });
+    // Clear OTP after verification
+    user.emailOTP = undefined;
+    user.emailOTPExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ message: "OTP verified successfully!" });
+  } catch (err) {
+    console.error("Verify OTP Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };

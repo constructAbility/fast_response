@@ -37,6 +37,7 @@ app.use('/auth', require('./routes/authRoute')); // 🔹 Google + normal auth ro
 app.use('/api', require('./routes/work'));
 app.use('/api', require('./routes/admin'));
 app.use('/otp',require('./routes/otpRoutes'))
+app.use('/forget',require('./routes/forgotpassword'))
 // ✅ MongoDB Connection (unchanged)
 mongoose.connect(process.env.MONGO_URL)
   .then(() => console.log('✅ MongoDB connected'))

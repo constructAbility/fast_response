@@ -6,11 +6,11 @@ const { register, login } = require("../controllers/authController");
 
 const router = express.Router();
 
-// 🧩 Normal Register/Login (for all roles)
+//  Normal Register/Login (for all roles)
 router.post("/register", register);
 router.post("/login", login);
 
-// 🧩 Google Login (only for clients)
+//  Google Login (only for clients)
 router.get(
   "/google",
   (req, res, next) => {
@@ -24,7 +24,7 @@ router.get(
   passport.authenticate("google", { scope: ["profile", "email"] })
 );
 
-// 🧩 Google Callback
+
 router.get(
   "/google/callback",
   passport.authenticate("google", { failureRedirect: "/auth/failure" }),
@@ -32,49 +32,53 @@ router.get(
     try {
       const googleUser = req.user;
 
-      // 🧠 Force role = client
-      let user = await User.findOne({ email: googleUser.email });
+      // Check if user already exists
+      let user = await User.findOne({ email: googleUser.emails?.[0]?.value });
+
       if (!user) {
-        user = new User({
-          name: googleUser.name,
-          email: googleUser.email,
-          phone: "N/A",
-          password: "N/A",
-          role: "client", // ✅ Force role as client
-          location: "N/A",
+        // Create new user with full Google profile details
+        user = await User.create({
+          googleId: googleUser.id,
+          name: googleUser.displayName || "",
+          firstName: googleUser.name?.givenName || "",
+          lastName: googleUser.name?.familyName || "",
+          email: googleUser.emails?.[0]?.value || "",
+          avatar: googleUser.photos?.[0]?.value || "",
+          role: "client", // default role
         });
+      } else {
+        // Optional: update avatar if changed
+        user.avatar = googleUser.photos?.[0]?.value || user.avatar;
+        user.googleId = googleUser.id;
         await user.save();
-      } else if (user.role !== "client") {
-        return res.status(403).json({
-          message: "❌ Only clients can use Google login",
-        });
       }
 
-      // 🔑 Generate JWT
+      // Generate JWT
       const token = jwt.sign(
         { id: user._id, role: user.role },
         process.env.JWT_SECRET,
         { expiresIn: "7d" }
       );
 
-      // 🌐 Redirect to frontend with token
+      // Redirect to frontend with token
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-      return res.redirect(`${frontendUrl}/client`);
-
+      return res.redirect(`${frontendUrl}/client?token=${token}`);
     } catch (err) {
       console.error("Google Callback Error:", err);
-      res.status(500).json({ message: "Server error during Google login" });
+      res.status(500).json({ message: "Server error" });
     }
   }
 );
 
 
-// 🧩 Failure redirect
+
+
+// Failure redirect
 router.get("/failure", (req, res) => {
   res.status(401).json({ message: "❌ Google authentication failed" });
 });
 
-// 🧩 Email-Only Login Flow (client only)
+//  Email-Only Login Flow (client only)
 router.post("/email", async (req, res) => {
   try {
     const { email } = req.body;
@@ -82,13 +86,13 @@ router.post("/email", async (req, res) => {
 
     let user = await User.findOne({ email });
     if (!user) {
-      // 🧠 Automatically register as client
+      //  Automatically register as client
       user = new User({
         name: "New Client",
         email,
         phone: "N/A",
         password: "N/A",
-        role: "client", // ✅hh Force client
+        role: "client", // hh Force client
         location: "N/A"
       });
       await user.save();
@@ -105,7 +109,7 @@ router.post("/email", async (req, res) => {
     );
 
     res.json({
-      message: "✅ Email login successful (client)",
+      message: " Email login successful (client)",
       token,
       user,
     });

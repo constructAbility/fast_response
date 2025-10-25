@@ -4,25 +4,27 @@ require("dotenv").config();
 const transporter = nodemailer.createTransport({
   host: "smtp.sendgrid.net",
   port: 587,
-  secure: false,
+  secure: false, // true for 465 (SSL), false for 587 (TLS)
   auth: {
-    user: "apikey", 
-    pass: process.env.SENDGRID_PASS, 
+    user: "apikey", // literal string for SendGrid
+    pass: process.env.SENDGRID_PASS, // your actual SendGrid API Key
   },
 });
 
 const sendEmail = async (to, subject, html) => {
   try {
     const info = await transporter.sendMail({
-      from: `"One Step Solution" <backendoffice12@gmail.com>`, 
+      from: `"One Step Solution" <${process.env.EMAIL_FROM}>`,
       to,
       subject,
-      text: "Hello, this is a test email from SendGrid using Node.js.", 
+      text: "Your email client does not support HTML messages.",
       html,
     });
-    console.log("✅ Email sent:", info.messageId);
+
+    console.log("✅ Email sent successfully:", info.messageId);
   } catch (error) {
-    console.error("❌ Email failed:", error.message);
+    console.error("❌ Email sending failed:", error.message);
+    throw new Error("Email sending failed.");
   }
 };
 
