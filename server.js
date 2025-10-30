@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const passport = require("passport");
-const session = require("express-session"); // 🆕 Needed for Google OAuth sessions
+const session = require("express-session"); //  Needed for Google OAuth sessions
 
 dotenv.config();
 const app = express();
@@ -13,7 +13,7 @@ require("./config/passport");
 
 // ✅ Middlewares
 app.use(cors({
-  origin: ["http://localhost:3000"], // frontend origin (change if needed)
+  origin: ["http://localhost:5173"], // frontend origin (change if needed)
   credentials: true,
 }));
 app.use(express.json());
