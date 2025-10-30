@@ -122,6 +122,8 @@ exports.registerTechnician = async (req, res) => {
         onDuty: false,
         technicianStatus: "available",
       });
+
+      await user.save(); // ✅ important for deployment
     }
 
     await sendVerificationOTP(user, email, firstName);
