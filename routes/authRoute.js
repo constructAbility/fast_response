@@ -122,7 +122,7 @@ router.get(
       );
 
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-      return res.redirect(`${frontendUrl}/login?token=${token}`);
+      return res.redirect(`${frontendUrl}/client?token=${token}`);
     } catch (err) {
       console.error("Facebook Callback Error:", err);
       res.status(500).json({ message: "Server error during Facebook login" });
