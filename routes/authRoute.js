@@ -12,13 +12,14 @@ const {
 
 const router = express.Router();
 
-// Normal register/login
+// -------------------- Normal register/login --------------------
 router.post("/client-register", registerClient);
 router.post("/technician-register", registerTechnician);
 router.post("/login", login);
 router.post("/verify-otp", verifyEmail);
+router.get("/profile", getProfile);
 
-// Google Login (Client only)
+// -------------------- GOOGLE LOGIN (CLIENT ONLY) --------------------
 router.get(
   "/google",
   (req, res, next) => {
@@ -36,9 +37,12 @@ router.get(
   passport.authenticate("google", { failureRedirect: "/auth/failure" }),
   async (req, res) => {
     try {
+      // ✅ req.user comes from passport (profile object)
       const googleUser = req.user;
+
       let user = await User.findOne({ email: googleUser.emails?.[0]?.value });
 
+      // Create new user if not found
       if (!user) {
         user = await User.create({
           googleId: googleUser.id,
@@ -49,27 +53,30 @@ router.get(
           role: "client",
         });
       } else {
+        // Update avatar or Google ID if changed
         user.avatar = googleUser.photos?.[0]?.value || user.avatar;
         user.googleId = googleUser.id;
         await user.save();
       }
 
+      // Generate JWT token
       const token = jwt.sign(
         { id: user._id, role: user.role },
         process.env.JWT_SECRET,
         { expiresIn: "7d" }
       );
 
+      // Redirect to frontend with token
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       return res.redirect(`${frontendUrl}/client?token=${token}`);
     } catch (err) {
       console.error("Google Callback Error:", err);
-      res.status(500).json({ message: "Server error" });
+      res.status(500).json({ message: "Server error during Google login" });
     }
   }
 );
 
-// Facebook Login (Client only)
+// -------------------- FACEBOOK LOGIN (CLIENT ONLY) --------------------
 router.get(
   "/facebook",
   (req, res, next) => {
@@ -87,12 +94,36 @@ router.get(
   passport.authenticate("facebook", { failureRedirect: "/auth/failure" }),
   async (req, res) => {
     try {
-      const facebookUser = req.user;
+      const facebookProfile = req.user;
+
+      let user = await User.findOne({
+        $or: [
+          { email: facebookProfile.emails?.[0]?.value },
+          { facebookId: facebookProfile.id },
+        ],
+      });
+
+      if (!user) {
+        user = await User.create({
+          facebookId: facebookProfile.id,
+          firstName: facebookProfile.name?.givenName || "",
+          lastName: facebookProfile.name?.familyName || "",
+          email: facebookProfile.emails?.[0]?.value || `fb_${facebookProfile.id}@facebook.com`,
+          avatar: facebookProfile.photos?.[0]?.value || "",
+          role: "client",
+        });
+      } else {
+        user.facebookId = facebookProfile.id;
+        user.avatar = facebookProfile.photos?.[0]?.value || user.avatar;
+        await user.save();
+      }
+
       const token = jwt.sign(
-        { id: facebookUser._id, role: facebookUser.role },
+        { id: user._id, role: user.role },
         process.env.JWT_SECRET,
         { expiresIn: "7d" }
       );
+
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       return res.redirect(`${frontendUrl}/client?token=${token}`);
     } catch (err) {
@@ -102,7 +133,7 @@ router.get(
   }
 );
 
-// Failure route
+// -------------------- FAILURE ROUTE --------------------
 router.get("/failure", (req, res) => {
   res.status(401).json({ message: "❌ Authentication failed" });
 });
