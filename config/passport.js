@@ -4,8 +4,8 @@ const FacebookStrategy = require("passport-facebook").Strategy;
 const jwt = require("jsonwebtoken");
 const User = require("../model/user");
 
-// 🌍 Detect environment (backend URL)
-const BASE_URL = process.env.BACKEND_URL || "http://localhost:5000";
+// 🌍 Backend base URL (used in callback)
+const BASE_URL = process.env.BACKEND_URL?.replace(/\/$/, "") || "http://localhost:5000";
 
 // ================== GOOGLE STRATEGY ==================
 passport.use(
@@ -14,23 +14,25 @@ passport.use(
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: `${BASE_URL}/auth/google/callback`,
-      scope: ["profile", "email"], // ✅ Ensure scope always present
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
         console.log("✅ Google Profile:", profile.displayName, profile.emails?.[0]?.value);
 
+        // If email not provided by Google
         if (!profile.emails?.length) {
-          return done(new Error("Google account does not provide email"), null);
+          return done(new Error("Google account does not provide an email"), null);
         }
 
-        let user = await User.findOne({ email: profile.emails[0].value });
+        const email = profile.emails[0].value;
+        let user = await User.findOne({ email });
 
         if (!user) {
           user = await User.create({
             googleId: profile.id,
-            name: profile.displayName || "",
-            email: profile.emails[0].value,
+            firstName: profile.name?.givenName || "",
+            lastName: profile.name?.familyName || "",
+            email,
             avatar: profile.photos?.[0]?.value || "",
             phone: "N/A",
             password: "google-oauth",
@@ -49,10 +51,10 @@ passport.use(
           { expiresIn: "7d" }
         );
 
-        done(null, { user, token });
+        return done(null, { user, token });
       } catch (err) {
         console.error("❌ Google Auth Error:", err);
-        done(err, null);
+        return done(err, null);
       }
     }
   )
@@ -71,18 +73,15 @@ passport.use(
       try {
         console.log("✅ Facebook Profile:", profile.displayName, profile.emails?.[0]?.value);
 
-        let user;
-        if (profile.emails?.length) {
-          user = await User.findOne({ email: profile.emails[0].value });
-        } else {
-          user = await User.findOne({ facebookId: profile.id });
-        }
+        const email = profile.emails?.[0]?.value || `fb_${profile.id}@facebook.com`;
+        let user = await User.findOne({ email });
 
         if (!user) {
           user = await User.create({
             facebookId: profile.id,
-            name: profile.displayName || "",
-            email: profile.emails?.[0]?.value || `fb_${profile.id}@facebook.com`,
+            firstName: profile.name?.givenName || "",
+            lastName: profile.name?.familyName || "",
+            email,
             avatar: profile.photos?.[0]?.value || "",
             phone: "N/A",
             password: "facebook-oauth",
@@ -101,10 +100,10 @@ passport.use(
           { expiresIn: "7d" }
         );
 
-        done(null, { user, token });
+        return done(null, { user, token });
       } catch (err) {
         console.error("❌ Facebook Auth Error:", err);
-        done(err, null);
+        return done(err, null);
       }
     }
   )
