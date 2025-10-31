@@ -37,12 +37,10 @@ router.get(
   passport.authenticate("google", { failureRedirect: "/auth/failure" }),
   async (req, res) => {
     try {
-      // ✅ req.user comes from passport (profile object)
       const googleUser = req.user;
 
       let user = await User.findOne({ email: googleUser.emails?.[0]?.value });
 
-      // Create new user if not found
       if (!user) {
         user = await User.create({
           googleId: googleUser.id,
@@ -53,20 +51,18 @@ router.get(
           role: "client",
         });
       } else {
-        // Update avatar or Google ID if changed
         user.avatar = googleUser.photos?.[0]?.value || user.avatar;
         user.googleId = googleUser.id;
         await user.save();
       }
 
-      // Generate JWT token
       const token = jwt.sign(
         { id: user._id, role: user.role },
         process.env.JWT_SECRET,
         { expiresIn: "7d" }
       );
 
-      // Redirect to frontend with token
+  
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       return res.redirect(`${frontendUrl}/login?token=${token}`);
     } catch (err) {
@@ -76,7 +72,6 @@ router.get(
   }
 );
 
-// -------------------- FACEBOOK LOGIN (CLIENT ONLY) --------------------
 router.get(
   "/facebook",
   (req, res, next) => {
@@ -108,7 +103,9 @@ router.get(
           facebookId: facebookProfile.id,
           firstName: facebookProfile.name?.givenName || "",
           lastName: facebookProfile.name?.familyName || "",
-          email: facebookProfile.emails?.[0]?.value || `fb_${facebookProfile.id}@facebook.com`,
+          email:
+            facebookProfile.emails?.[0]?.value ||
+            `fb_${facebookProfile.id}@facebook.com`,
           avatar: facebookProfile.photos?.[0]?.value || "",
           role: "client",
         });
@@ -125,7 +122,7 @@ router.get(
       );
 
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-      return res.redirect(`${frontendUrl}/client?token=${token}`);
+      return res.redirect(`${frontendUrl}/login?token=${token}`);
     } catch (err) {
       console.error("Facebook Callback Error:", err);
       res.status(500).json({ message: "Server error during Facebook login" });
