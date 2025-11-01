@@ -1,34 +1,44 @@
 const User = require("../model/user");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const sendEmail = require("../utils/sendemail");
+const sendEmail = require("../utils/sendEmail");
 
+/* ---------------------- TOKEN GENERATION ---------------------- */
 const generateToken = (user) => {
   return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
     expiresIn: "7d",
   });
 };
 
+/* ---------------------- OTP EMAIL FUNCTION ---------------------- */
 const sendVerificationOTP = async (user, email, name) => {
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  user.emailOTP = otp;
-  user.emailOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-  await user.save();
+  try {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.emailOTP = otp;
+    user.emailOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    await user.save();
 
-  const html = `
-    <div style="font-family:Arial; text-align:center;">
-      <h2>Email Verification</h2>
-      <p>Hello ${name || "User"},</p>
-      <p>Your OTP is:</p>
-      <h1>${otp}</h1>
-      <p>This code will expire in 10 minutes.</p>
-    </div>
-  `;
+    const html = `
+      <div style="font-family:Arial, text-align:center; background:#f9f9f9; padding:20px; border-radius:8px;">
+        <h2 style="color:#333;">Email Verification</h2>
+        <p>Hello <strong>${name || "User"}</strong>,</p>
+        <p>Your OTP for email verification is:</p>
+        <h1 style="background:#007bff; color:white; display:inline-block; padding:10px 20px; border-radius:6px;">${otp}</h1>
+        <p>This code will expire in <b>10 minutes</b>.</p>
+        <hr/>
+        <small style="color:#888;">© One Step Solution</small>
+      </div>
+    `;
 
-  await sendEmail(email, "Your OTP Code", html);
+    await sendEmail(email, "Your OTP Code - One Step Solution", html);
+    console.log(`✅ OTP ${otp} sent to ${email}`);
+  } catch (err) {
+    console.error("❌ Error sending OTP email:", err.message);
+    throw new Error("Failed to send OTP email. Please try again later.");
+  }
 };
 
-/* ------------------------- CLIENT REGISTRATION -------------------------- */
+/* ---------------------- CLIENT REGISTRATION ---------------------- */
 exports.registerClient = async (req, res) => {
   try {
     const { firstName, lastName, email, phone, password, confirmPassword } = req.body;
@@ -41,8 +51,13 @@ exports.registerClient = async (req, res) => {
 
     let user = await User.findOne({ email });
 
-    if (user && user.isEmailVerified)
-      return res.status(400).json({ message: "Email already registered." });
+    // If already verified
+    if (user && user.isEmailVerified) {
+      return res.status(400).json({ message: "Email already registered and verified." });
+    }
+
+    // Hash password if new or updating
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     if (!user) {
       user = new User({
@@ -51,31 +66,39 @@ exports.registerClient = async (req, res) => {
         email,
         phone,
         role: "client",
+        password: hashedPassword,
+      });
+    } else {
+      // Update existing unverified record
+      user.set({
+        firstName,
+        lastName,
+        phone,
+        password: hashedPassword,
+        role: "client",
       });
     }
 
-    // Remove technician-related fields
-    user.set({
-      specialization: undefined,
-      experience: undefined,
-      availability: undefined,
-      onDuty: undefined,
-      technicianStatus: undefined,
-    });
+    // Clear technician fields if exist
+    user.specialization = undefined;
+    user.experience = undefined;
+    user.availability = undefined;
+    user.onDuty = undefined;
+    user.technicianStatus = undefined;
 
-    // Send OTP
     await sendVerificationOTP(user, email, firstName);
+
     res.status(200).json({
       message: "OTP sent to your email. Verify to complete registration.",
       email,
     });
   } catch (err) {
-    console.error("Client registration error:", err);
+    console.error("❌ Client registration error:", err.message);
     res.status(500).json({ message: "Registration failed. Try again later." });
   }
 };
 
-/* ------------------------- TECHNICIAN REGISTRATION -------------------------- */
+/* ---------------------- TECHNICIAN REGISTRATION ---------------------- */
 exports.registerTechnician = async (req, res) => {
   try {
     const {
@@ -97,11 +120,14 @@ exports.registerTechnician = async (req, res) => {
       return res.status(400).json({ message: "Passwords do not match." });
 
     if (!specialization || !experience)
-      return res.status(400).json({ message: "Specialization and experience are required." });
+      return res
+        .status(400)
+        .json({ message: "Specialization and experience are required." });
 
     let user = await User.findOne({ email });
+
     if (user && user.isEmailVerified)
-      return res.status(400).json({ message: "Email already registered as verified." });
+      return res.status(400).json({ message: "Email already registered and verified." });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -111,10 +137,10 @@ exports.registerTechnician = async (req, res) => {
         lastName,
         email,
         phone,
-        role: "technician",
         password: hashedPassword,
+        role: "technician",
         specialization: Array.isArray(specialization)
-          ? specialization
+          ? specialization.map((s) => s.trim().toLowerCase())
           : specialization.split(",").map((s) => s.trim().toLowerCase()),
         experience,
         location,
@@ -122,8 +148,23 @@ exports.registerTechnician = async (req, res) => {
         onDuty: false,
         technicianStatus: "available",
       });
-
-      await user.save(); // ✅ important for deployment
+    } else {
+      // Update existing unverified user
+      user.set({
+        firstName,
+        lastName,
+        phone,
+        password: hashedPassword,
+        specialization: Array.isArray(specialization)
+          ? specialization.map((s) => s.trim().toLowerCase())
+          : specialization.split(",").map((s) => s.trim().toLowerCase()),
+        experience,
+        location,
+        availability: true,
+        onDuty: false,
+        technicianStatus: "available",
+        role: "technician",
+      });
     }
 
     await sendVerificationOTP(user, email, firstName);
@@ -133,7 +174,7 @@ exports.registerTechnician = async (req, res) => {
       email,
     });
   } catch (err) {
-    console.error("Technician registration error:", err);
+    console.error("❌ Technician registration error:", err.message);
     res.status(500).json({ message: "Registration failed. Try again later." });
   }
 };
