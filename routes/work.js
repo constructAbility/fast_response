@@ -13,9 +13,9 @@ const {
   trackTechnician,
   updateLocation,getClientWorkStatus,reportWorkIssue,getAdminNotifications
 } = require('../controllers/workController');
-const { 
- completeWorkAndGenerateBill ,getTechnicianSummary
-} = require('../controllers/techniciancontroller');
+// const { 
+//  completeWorkAndGenerateBill ,getTechnicianSummary
+// } = require('../controllers/techniciancontroller');
 
 const { getAllWorks } = require('../controllers/statuscontrollers');
 
@@ -31,7 +31,7 @@ router.post('/work/book-technician', protect, bookTechnician);
 router.post('/work/start', protect,upload.single("beforePhoto"), authorize('technician'), WorkStart);
 router.post('/work/complete-1', protect, upload.single("afterphoto"),authorize('technician'),  WorkComplete  );
 
-router.post('/work/complete', protect, authorize('technician'), completeWorkAndGenerateBill  );
+// router.post('/work/complete', protect, authorize('technician'), completeWorkAndGenerateBill  );
 router.post('/work/issue', protect, authorize('technician'), reportWorkIssue);
 
 
@@ -45,6 +45,6 @@ router.get('/track-technician/:workId',protect,trackTechnician)
 
 router.get('/client-work/:workId',protect, authorize('client'),getClientWorkStatus)
 
-router.get('/technician-summry',protect,getTechnicianSummary)
+// router.get('/technician-summry',protect,getTechnicianSummary)
 
 module.exports = router;
