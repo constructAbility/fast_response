@@ -8,7 +8,7 @@ const fs = require("fs");
 // const PDFDocument = require("pdfkit");
 const nodemailer = require("nodemailer");
 const sendemail=require('../utils/sendemail')
-const { uploadToCloudinary } = require("../utils/cloudinaryUpload");
+// const { uploadToCloudinary } = require("../utils/cloudinaryUpload");
 const generateToken = (id) => {
   return `REQ-${new Date().getFullYear()}-${String(id).padStart(5, '0')}`;
 };
