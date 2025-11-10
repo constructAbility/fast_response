@@ -28,8 +28,8 @@ router.post('/work/find-technicians', protect, findMatchingTechnicians);
 router.post('/work/book-technician', protect, bookTechnician);
 
 
-router.post('/work/start', protect,upload.single("beforePhoto"), authorize('technician'), WorkStart);
-router.post('/work/complete-1', protect, upload.single("afterphoto"),authorize('technician'),  WorkComplete  );
+router.post('/work/start', protect, authorize('technician'), WorkStart);
+router.post('/work/complete-1', protect,authorize('technician'),  WorkComplete  );
 
 // router.post('/work/complete', protect, authorize('technician'), completeWorkAndGenerateBill  );
 router.post('/work/issue', protect, authorize('technician'), reportWorkIssue);
