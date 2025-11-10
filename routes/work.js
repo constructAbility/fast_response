@@ -1,6 +1,6 @@
 const express = require('express');
 const { protect, authorize } = require('../middelware/authMiddelware');
-const upload = require("../utils/upload");
+// const upload = require("../utils/upload");
 
 const router = express.Router();
 
